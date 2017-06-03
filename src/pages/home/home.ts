@@ -5,6 +5,8 @@ import {Geolocation} from '@ionic-native/geolocation';
 
 import {BikeDbProvider} from '../../providers/bike-db/bike-db';
 
+import {RentBikePage} from '../rent-bike/rent-bike';
+
 //One tutorial is from: https://www.christianengvall.se/ionic2-google-maps-markers/
 
 declare var google;
@@ -85,12 +87,20 @@ export class HomePage {
     console.log("Map initialization started");
 
     //Zoom to user center only once (potentially have a button that zooms in to the user that changes this variable
-    setInterval(() => {
-     this.getUserGeolocation();
-     /*this.addCurLocationAsBike();*/
-     this.removeBikeMarkers();
-     this.addBikeMarkers();
-     }, 1000 * 3);
+    try {
+      setInterval(() => {
+        this.getUserGeolocation();
+        this.addCurLocationAsBike();
+        this.removeBikeMarkers();
+        this.addBikeMarkers();
+      }, 1000 * 3);
+
+    } catch (e) {
+      console.log("ERROR WHEN STARTING AND STOPPING BOOKINGBIKE!");
+      console.log(e);
+      while(true){}
+    }
+
 
 
     //TODO: Add only bike markers that are close to your current location
@@ -138,20 +148,26 @@ export class HomePage {
             console.log("Adding bike");
             console.log(JSON.stringify(sglBike));
 
-            var bikePositionMarker = new google.maps.Marker({
-              position: {lat: sglBike['positionLat'], lng: sglBike['positionLng']},
-              map: this.map,
-              title: "Bike" + String(sglBike['bike_no'])
-            });
+            if (String(sglBike['current_user']) == "0") {
+              var bikePositionMarker = new google.maps.Marker({
+                position: {lat: sglBike['positionLat'], lng: sglBike['positionLng']},
+                map: this.map,
+                title: "Bike" + String(sglBike['bike_no'])
+              });
 
-            this.allBikeMarkers.push(bikePositionMarker);
+              this.allBikeMarkers.push(bikePositionMarker);
+            } else {
+              console.log("Bike is in use!");
+            }
+
+
           }
         )
       }
     );
   }
 
-  /*addCurLocationAsBike() {
+  addCurLocationAsBike() {
     if (this.userLocation) {
       var bikeData = {
         "bike_no": 10,
@@ -166,7 +182,7 @@ export class HomePage {
     }
 
 
-  }*/
+  }
 
 
   removeBikeMarkers() {
