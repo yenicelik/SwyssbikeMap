@@ -3,6 +3,8 @@ import {NavController} from 'ionic-angular';
 
 import {Geolocation} from '@ionic-native/geolocation';
 
+import {BikeDbProvider} from '../../providers/bike-db/bike-db';
+
 //One tutorial is from: https://www.christianengvall.se/ionic2-google-maps-markers/
 
 declare var google;
@@ -18,28 +20,15 @@ export class HomePage {
   begin: boolean;
   userPositionMarker: any;
   allBikeMarkers: any;
-  bikeData = [
-    {
-      "latitude": 47.3846,
-      "longitude": 8.5353,
-      "name": "Bike0"
-    },
-    {
-      "latitude": 47.3983,
-      "longitude": 8.5674,
-      "name": "Bike1"
-    },
-    {
-      "latitude": 47.3216,
-      "longitude": 8.5125,
-      "name": "Bike2"
-    }
-  ];
 
   constructor(public navCtrl: NavController,
-              public geolocation: Geolocation) {
+              public geolocation: Geolocation,
+              public bikeDB: BikeDbProvider) {
     console.log("Home page creator loaded");
     this.begin = true;
+    this.bikeDB.creationLoad();
+    this.bikeDB.populateBikeList();
+    console.log("Bikes should be loaded now");
     this.allBikeMarkers = [];
   }
 
@@ -97,10 +86,12 @@ export class HomePage {
 
     //Zoom to user center only once (potentially have a button that zooms in to the user that changes this variable
     setInterval(() => {
-      this.getUserGeolocation();
-      this.removeBikeMarkers();
-      this.addBikeMarkers();
-    }, 1000 * 1);
+     this.getUserGeolocation();
+     /*this.addCurLocationAsBike();*/
+     this.removeBikeMarkers();
+     this.addBikeMarkers();
+     }, 1000 * 3);
+
 
     //TODO: Add only bike markers that are close to your current location
 
@@ -140,22 +131,47 @@ export class HomePage {
   }
 
   addBikeMarkers() {
-    this.bikeData.forEach( (sglBikeData) => {
-      console.log("Adding bike");
-      var bikePositionMarker = new google.maps.Marker({
-        position: {lat: sglBikeData['latitude'], lng: sglBikeData['longitude']},
-        map: this.map,
-        title: sglBikeData['name']
-      });
 
-      this.allBikeMarkers.push(bikePositionMarker);
+    this.bikeDB.getBikesList().subscribe(
+      (allBikes) => {
+        allBikes.map((sglBike) => {
+            console.log("Adding bike");
+            console.log(JSON.stringify(sglBike));
 
-    });
+            var bikePositionMarker = new google.maps.Marker({
+              position: {lat: sglBike['positionLat'], lng: sglBike['positionLng']},
+              map: this.map,
+              title: "Bike" + String(sglBike['bike_no'])
+            });
+
+            this.allBikeMarkers.push(bikePositionMarker);
+          }
+        )
+      }
+    );
   }
+
+  /*addCurLocationAsBike() {
+    if (this.userLocation) {
+      var bikeData = {
+        "bike_no": 10,
+        "positionLat": this.userLocation.lat(),
+        "positionLng": this.userLocation.lng(),
+        "current_user": "self"
+      };
+
+      this.bikeDB.updateBikeData(bikeData);
+    } else {
+      console.log("Location is not available yet!");
+    }
+
+
+  }*/
+
 
   removeBikeMarkers() {
     if (this.allBikeMarkers) {
-      this.allBikeMarkers.forEach( (sglBikeData) => {
+      this.allBikeMarkers.forEach((sglBikeData) => {
         console.log("Removing bike");
         sglBikeData.setMap(null);
         sglBikeData = null;
