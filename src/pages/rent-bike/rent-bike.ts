@@ -1,5 +1,12 @@
 import {Component} from '@angular/core';
-import {IonicPage, NavController, NavParams, ViewController, AlertController} from 'ionic-angular';
+import {
+    IonicPage,
+    NavController,
+    NavParams,
+    ViewController,
+    AlertController,
+    Events
+} from 'ionic-angular';
 
 import {BikeDbProvider} from '../../providers/bike-db/bike-db';
 
@@ -12,72 +19,77 @@ import {BikeDbProvider} from '../../providers/bike-db/bike-db';
  */
 @IonicPage()
 @Component({
-  selector: 'page-rent-bike',
-  templateUrl: 'rent-bike.html',
+    selector: 'page-rent-bike',
+    templateUrl: 'rent-bike.html',
 })
 export class RentBikePage {
 
-  constructor(public navCtrl: NavController,
-              public navParams: NavParams,
-              public bikeDB: BikeDbProvider,
-              public viewCtrl: ViewController,
-              public alertCtr: AlertController) {
-    console.log("Loading RentBikePage");
-    this.bikeDB.creationLoad();
-  }
+    startData: any;
 
-  //UserData will need to be passed on to register who uses the bike. For now, use the current_user:'self' indicating that the bike is in use
+    constructor(public navCtrl: NavController,
+                public navParams: NavParams,
+                public bikeDB: BikeDbProvider,
+                public viewCtrl: ViewController,
+                public alertCtr: AlertController,
+                public events: Events) {
+        this.events.subscribe("book:stopBooking", (userBikeNo, locationLat, locationLng) => {
+            this.stopBookingBike(userBikeNo, locationLat, locationLng);
+        })
+    }
 
-  ionViewDidLoad() {
-    console.log('ionViewDidLoad RentBikePage');
-  }
+    dismiss() {
+        //To cancel booking the bike
+        this.viewCtrl.dismiss();
+    }
 
-  // VIEW SPECIFIC CONTROLS
-  dismiss() {
-    this.viewCtrl.dismiss();
-  }
+    // LOGIC/PROVIDER SPECIFIC CONTROLS
+    startBookingBike() {
+        this.startData = {
+            bike_no: this.navParams.get('bike_no'),
+            current_user: "self",
+            positionLat: this.navParams.get('lat'),
+            positionLng: this.navParams.get('lng')
+        };
 
-  // LOGIC/PROVIDER SPECIFIC CONTROLS
-  startBookingBike() {
-    console.log("Starting booking bike: All nav params are");
-    console.log(JSON.stringify(this.navParams));
 
-    //TODO: Check if bike is actually not booked! if yes, send error log and revert back to main page
+        //TODO: Check if bike is actually not booked! if yes, send error log and revert back to main page
 
-    var saveData = {
-      bike_no: 1,
-      current_user: "self",
-      positionLat: 47.3446,
-      positionLng: 8.5253
-    };
+        this.bikeDB.updateBikeData(this.startData);
 
-    this.bikeDB.updateBikeData(saveData);
+        let bookingCodeAlert = this.alertCtr.create({
+            title: 'The code for this bike is 4391',
+            buttons: ['OK']
+        });
+        bookingCodeAlert.present();
 
-    let bookingCodeAlert = this.alertCtr.create({
-      title: 'The code for this bike is 4391',
-      buttons: ['OK']
-    });
-    bookingCodeAlert.present();
+        //passcode is bike-specific and should be retrieved, never set..
+        this.viewCtrl.dismiss({bike_no: 0, success: true, bikeCode: 4391});
+    }
 
-    //passcode is bike-specific and should be retrieved, never set..
-    this.viewCtrl.dismiss({bikeNo: 0, success: true, bikeCode: 4391});
-  }
+    //TODO make sure to move this into the rent-bike.ts somehow!!
+    stopBookingBike(userBikeNo, userLocationLat, userLocationLng) {
 
-  //TODO: Somehow make sure that this function can be contained within this class, but can be called from the other file..!! Potentially have a callback or so?
-  /*stopBookingBike() {
-   console.log("Stopping booking bike: All nav params are");
-   console.log(JSON.stringify(this.navCtrl));
 
-   //TODO: make sure that bike was booked before it can be returned
-   var saveData = {
-   bike_no: 1,
-   current_user: "0",
-   positionLat: 47.3546,
-   positionLng: 8.5553
-   };
+        //TODO: make sure that bike was booked before it can be returned
 
-   this.bikeDB.updateBikeData(saveData);
+        var endData = {
+            bike_no: userBikeNo,
+            current_user: 0,
+            positionLat: userLocationLat + Math.random() * 0.5 - 0.25,
+            positionLng: userLocationLng + Math.random() * 0.5 - 0.25
+        };
 
-   }*/
+        this.bikeDB.updateBikeData(endData);
+
+        console.log("Stop bike booking with parameters");
+        console.log(JSON.stringify(endData));
+
+        return true;
+
+    }
+
+    //TODO: Somehow make sure that this function can be contained within this class, but can be called from the other file..!! Potentially have a callback or so?
+
+    //TODO: make sure that bike was booked before it can be returned
 
 }

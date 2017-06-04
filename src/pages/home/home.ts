@@ -1,271 +1,234 @@
 import {Component, ViewChild, ElementRef} from '@angular/core';
-import {NavController, ModalController, AlertController} from 'ionic-angular';
+import {
+    NavController,
+    ModalController,
+    AlertController,
+    Events
+} from 'ionic-angular';
 
 import {Geolocation} from '@ionic-native/geolocation';
 
 import {BikeDbProvider} from '../../providers/bike-db/bike-db';
-
 import {RentBikePage} from '../rent-bike/rent-bike';
+import {UserControllerProvider} from '../../providers/user-controller/user-controller';
 
 //One tutorial is from: https://www.christianengvall.se/ionic2-google-maps-markers/
 
 declare var google;
 
 @Component({
-  selector: 'page-home',
-  templateUrl: 'home.html'
+    selector: 'page-home',
+    templateUrl: 'home.html'
 })
 export class HomePage {
 
-  //TODO: if one has a javascript console, it is not safe to just add a CSS of 'keyboardopen' into it, as stopRidingBike could be invoked. Make sure this is conditioned
-  @ViewChild('infoFooter') infoFooter: ElementRef;
-  map: any;
-  userLocation: any;
-  begin: boolean;
-  userPositionMarker: any;
-  allBikeMarkers: any;
+    //TODO: if one has a javascript console, it is not safe to just add a CSS of 'keyboardopen' into it, as stopRidingBike could be invoked. Make sure this is conditioned
+    @ViewChild('infoFooter') infoFooter: ElementRef;
+    map: any;
+    userLocation: any;
+    begin: boolean;
+    userPositionMarker: any;
+    allBikeMarkers: any = [];
+    didBook: boolean = false;
 
-  constructor(public navCtrl: NavController,
-              public geolocation: Geolocation,
-              public bikeDB: BikeDbProvider,
-              public modalCtrl: ModalController) {
-    console.log("Home page creator loaded");
-    this.begin = true;
-    this.bikeDB.creationLoad();
-    this.bikeDB.populateBikeList();
-    console.log("Bikes should be loaded now");
-    this.allBikeMarkers = [];
-  }
 
-  ionViewDidLoad() {
-    console.log("ngAfterViewInit loaded");
-    this.infoFooter.nativeElement.classList.add('keyboardopen');
-
-    let mapEle = document.getElementById('map');
-    let mapOpt = {
-      center: {lat: 47.3769, lng: 8.5417},
-      zoom: 11,
-      mapTypeControl: false,
-      fullscreenControl: false,
-      streetViewControl: false,
-      style: [
-        {
-          "featureType": "poi",
-          "elementType": "labels.text",
-          "stylers": [
-            {
-              "visibility": "off"
-            }
-          ]
-        },
-        {
-          "featureType": "poi.business",
-          "stylers": [
-            {
-              "visibility": "off"
-            }
-          ]
-        },
-        {
-          "featureType": "road",
-          "elementType": "labels.icon",
-          "stylers": [
-            {
-              "visibility": "off"
-            }
-          ]
-        },
-        {
-          "featureType": "transit",
-          "stylers": [
-            {
-              "visibility": "off"
-            }
-          ]
-        }
-      ]
-    };
-
-    this.map = new google.maps.Map(mapEle, mapOpt);
-
-    console.log("Map initialization started");
-
-    //Zoom to user center only once (potentially have a button that zooms in to the user that changes this variable
-    try {
-      setInterval(() => {
-        this.getUserGeolocation();
-        this.addCurLocationAsBike();
-        this.removeBikeMarkers();
-        this.addBikeMarkers();
-      }, 1000 * 20);
-
-    } catch (e) {
-      console.log("ERROR WHEN STARTING AND STOPPING BOOKINGBIKE!");
-      console.log(e);
-      while(true){}
+    constructor(public navCtrl: NavController,
+                public geolocation: Geolocation,
+                public bikeDB: BikeDbProvider,
+                public modalCtrl: ModalController,
+                public alertCtrl: AlertController,
+                public events: Events,
+                public userCtrl: UserControllerProvider) {
+        this.begin = true;
+        console.log("Bikes should be loaded now");
     }
 
 
+    ionViewDidLoad() {
+        console.log("ngAfterViewInit loaded");
+        this.infoFooter.nativeElement.classList.add('keyboardopen');
 
-    //TODO: Add only bike markers that are close to your current location
-
-  }
-
-  getUserGeolocation() {
-    this.geolocation.getCurrentPosition().then((curGeolocation) => {
-      console.log("User location determined");
-
-      if (this.userLocation) {
-        this.userLocation = null;
-      }
-
-      //TODO: somehow, this doesn't work. It doesn't track the users location
-      this.userLocation = new google.maps.LatLng(curGeolocation.coords.latitude, curGeolocation.coords.longitude);
-      console.log(JSON.stringify(this.userLocation));
-
-      if (this.userPositionMarker) { //not necessarily the best option
-        this.userPositionMarker.setMap(null);
-      }
-
-      this.userPositionMarker = new google.maps.Marker({
-        position: this.userLocation,
-        map: this.map,
-        title: 'Your position'
-      });
-
-      if (this.begin) {
-        this.begin = false;
-        this.map.setCenter(this.userLocation);
-      }
-
-    }, (error) => {
-      console.log("GeoLocation services failed");
-      console.log(error);
-    });
-  }
-
-  addBikeMarkers() {
-
-    this.bikeDB.getBikesList().subscribe(
-      (allBikes) => {
-        allBikes.map((sglBike) => {
-            console.log("Adding bike");
-            console.log(JSON.stringify(sglBike));
-
-            if (String(sglBike['current_user']) == "0") {
-              var bikePositionMarker = new google.maps.Marker({
-                position: {lat: sglBike['positionLat'], lng: sglBike['positionLng']},
-                map: this.map,
-                title: "Bike" + String(sglBike['bike_no'])
-              });
-
-              bikePositionMarker.addListener('click', () => {
-
-                if (this.userLocation) {
-                  let bikeModal = this.modalCtrl.create(RentBikePage, {}); //At this stage, don't pass anything to the other page
-                  //Action for when modal goes away
-                  bikeModal.onDidDismiss((data) => {
-                    console.log("End of START BOOKING BIKE");
-                    console.log(JSON.stringify(data));
-                    this.infoFooter.nativeElement.classList.remove('keyboardopen');
-                  });
-                  bikeModal.present()
+        //Add Google map
+        let mapEle = document.getElementById('map');
+        let mapOpt = {
+            center: {lat: 47.3769, lng: 8.5417},
+            zoom: 8,
+            mapTypeControl: false,
+            fullscreenControl: false,
+            streetViewControl: false,
+            style: [
+                {
+                    "featureType": "poi",
+                    "elementType": "labels.text",
+                    "stylers": [
+                        {
+                            "visibility": "off"
+                        }
+                    ]
+                },
+                {
+                    "featureType": "poi.business",
+                    "stylers": [
+                        {
+                            "visibility": "off"
+                        }
+                    ]
+                },
+                {
+                    "featureType": "road",
+                    "elementType": "labels.icon",
+                    "stylers": [
+                        {
+                            "visibility": "off"
+                        }
+                    ]
+                },
+                {
+                    "featureType": "transit",
+                    "stylers": [
+                        {
+                            "visibility": "off"
+                        }
+                    ]
                 }
-              });
+            ]
+        };
+        this.map = new google.maps.Map(mapEle, mapOpt);
 
 
-
-              this.allBikeMarkers.push(bikePositionMarker);
-            } else {
-              console.log("Bike is in use!");
+        //Update markers repeatedly
+        try {
+            this.centerMapToUser();
+            setInterval(() => {
+                this.removeBikeMarkers();
+                this.addBikeMarkers();
+            }, 1000 * 1);
+            if (this.userCtrl.userLocation) {
+                this.map.setCenter(this.userCtrl.userLocation);
             }
 
+        } catch (e) {
+            console.log("ERROR WHEN STARTING AND STOPPING BOOKINGBIKE!");
+            console.log(e);
+        }
 
-          }
-        )
-      }
-    );
-  }
 
-  addCurLocationAsBike() {
-    if (this.userLocation) {
-      var bikeData = {
-        "bike_no": 10,
-        "positionLat": this.userLocation.lat(),
-        "positionLng": this.userLocation.lng(),
-        "current_user": "self"
-      };
-
-      this.bikeDB.updateBikeData(bikeData);
-    } else {
-      console.log("Location is not available yet!");
     }
 
-  }
+    addUserMarker() {
+        if (this.userPositionMarker) {
+            this.userPositionMarker.setMap(null);
+        }
+        this.userPositionMarker = new google.maps.Marker({
+            position: this.userCtrl.userLocation,
+            map: this.map,
+            title: 'Your position'
+        });
 
+        //Zoom to user location if beginning
+        if (this.begin) {
+            this.begin = false;
+            this.map.setCenter(this.userCtrl.userLocation);
+        }
 
-  removeBikeMarkers() {
-    if (this.allBikeMarkers) {
-      this.allBikeMarkers.forEach((sglBikeData) => {
-        console.log("Removing bike");
-        sglBikeData.setMap(null);
-        sglBikeData = null;
-      });
-      this.allBikeMarkers = [];
     }
-  }
 
 
-  //TODO make sure to move this into the rent-bike.ts somehow!!
-  stopBookingBike() {
+    centerMapToUser() {
+        if (this.userCtrl.userLocation) {
+            this.map.setCenter(this.userCtrl.userLocation);
 
-    //TODO: make sure that bike was booked before it can be returned
-    var saveData = {
-      bike_no: 1,
-      current_user: "0",
-      positionLat: 47.3546,
-      positionLng: 8.5553
-    };
+        }
+    }
 
-    this.bikeDB.updateBikeData(saveData);
-    this.infoFooter.nativeElement.classList.add('keyboardopen');
 
-  }
+    alertTryingToBookTwice() {
+        let alreadyBooked = this.alertCtrl.create({
+            title: 'Already biking!',
+            subTitle: 'You are already riding a bike and cannot book more',
+            buttons: ['Ok']
+        });
+        alreadyBooked.present();
+    }
 
-  /*ngAfterViewInit() {
-   this.displayGoogleMap();
-   this.getMarkers();
-   }
-   displayGoogleMap() {
-   let latLng = new google.maps.LatLng(57.8127004, 14.2106225);
 
-   let mapOptions = {
-   center: latLng,
-   disableDefaultUI: true,
-   zoom: 11,
-   mapTypeId: google.maps.MapTypeId.ROADMAP
-   }
+    modalGoToBookingPage(bike_no) {
+        let bikeModal = this.modalCtrl.create(RentBikePage, {
+            bike_no: bike_no,
+            lat: this.userCtrl.userLocation.lat,
+            lng: this.userCtrl.userLocation.lng
+        }); //At this stage, don't pass anything to the other page
+        //Action for when modal goes away
+        bikeModal.onDidDismiss((data) => {
 
-   this.map = new google.maps.Map(this.mapContainer.nativeElement, mapOptions);
+            //In case dismiss was a booking confirmation
+            if (data) {
+                console.log("End of START BOOKING BIKE");
+                console.log(JSON.stringify(data));
+                this.infoFooter.nativeElement.classList.remove('keyboardopen');
+                this.userCtrl.markAsBooking(bike_no);
+                //In case dismiss was cancelling (returning from) the booking (site)
+            } else {
+                console.log("Booking was cancelled");
+            }
+        });
+        bikeModal.present()
+    }
 
-   }
 
-   addMarkersToMap(markers) {
-   for (let marker of markers) {
-   var position = new google.maps.LatLng(marker.latitude, marker.longitude);
-   var dogwalkMarker = new google.maps.Marker({position: position, title: marker.title});
-   dogwalkMarker.setMap(this.map);
-   }
-   }
+    addBikeMarkers() {
+        this.bikeDB.getBikesList().subscribe((allBikes) => {
+            allBikes.forEach(
+                (sglBike) => {
+                    console.log("Single bike");
+                    console.log(sglBike['current_user']);
+                    console.log(sglBike['bike_no']);
+                    if (sglBike['current_user'] === 0) {
+                        var bikePositionMarker = new google.maps.Marker({
+                            position: {lat: sglBike['positionLat'], lng: sglBike['positionLng']},
+                            map: this.map,
+                            title: "Bike" + String(sglBike['bike_no'])
+                        });
 
-   getMarkers() {
-   this.http.get('assts/data/markers.json')
-   .map((res) => res.json())
-   .subscribe((data) => {
-   this.addMarkersToMap(data);
-   })
-   }
-   */
+                        bikePositionMarker.addListener('click', () => {
+                            //TODO: In-between refreshing markers, this action depends on the conditional
+                            if (this.userCtrl.hasABike) {
+                                this.alertTryingToBookTwice();
+                            } else if (this.userCtrl.userLocation) {
+                                this.modalGoToBookingPage(sglBike['bike_no']);
+                            }
+                        });
+
+                        this.allBikeMarkers.push(bikePositionMarker);
+
+                    } else if (sglBike['current_user'] != 0) {
+                        console.log("Bike number " + String(sglBike['bike_no']) + " is in use by user is: " + String(sglBike['current_user']));
+                    }
+                }
+            );
+        });
+
+    }
+
+    removeBikeMarkers() {/*
+        if (this.allBikeMarkers) {
+            this.allBikeMarkers.map((sglBikeData) => {
+                sglBikeData.setMap(null);
+                sglBikeData = null;
+            });
+            this.allBikeMarkers = [];
+        }*/
+    }
+
+
+    stopBookingBike() {
+        this.events.publish("book:stopBooking", this.userCtrl.currentBike, this.userCtrl.userLocation.lat, this.userCtrl.userLocation.lng);
+        //THIS must happen AFTER the upper function!
+        this.userCtrl.markAsNotBooking();
+        this.infoFooter.nativeElement.classList.add('keyboardopen');
+    }
+
+
 }
 
 
