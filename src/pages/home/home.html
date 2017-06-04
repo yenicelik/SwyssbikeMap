@@ -8,4 +8,24 @@
 
 <ion-content padding>
   <div #map id="map" style="height:100%; padding: 0; maring:0;"></div>
+
+  <ion-footer #infoFooter id="infoFooter" class="keyboardopen" ng-if='isMainPanel'>
+    <ion-toolbar>
+      <ion-grid>
+        <ion-row>
+          <ion-col col>
+            Code: 4391
+          </ion-col>
+
+          <ion-col col>
+            <button (click)="stopBookingBike()">Stop Riding</button>
+          </ion-col>
+
+          <ion-col col>
+            Bike Number: 1
+          </ion-col>
+        </ion-row>
+      </ion-grid>
+    </ion-toolbar>
+  </ion-footer>
 </ion-content>

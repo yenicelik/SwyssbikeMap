@@ -12,6 +12,8 @@ import { AngularFireDatabaseModule } from 'angularfire2/database';
 import { MyApp } from './app.component';
 import { HomePage } from '../pages/home/home';
 import { BikeDbProvider } from '../providers/bike-db/bike-db';
+import {RentBikePage} from '../pages/rent-bike/rent-bike';
+
 
 const firebaseConfig={
   apiKey: "AIzaSyChC62HAtPWAtFiJmcDlTGWwq_YFOjSNqE",
@@ -25,7 +27,8 @@ const firebaseConfig={
 @NgModule({
   declarations: [
     MyApp,
-    HomePage
+    HomePage,
+    RentBikePage
   ],
   imports: [
     BrowserModule,
@@ -36,7 +39,8 @@ const firebaseConfig={
   bootstrap: [IonicApp],
   entryComponents: [
     MyApp,
-    HomePage
+    HomePage,
+    RentBikePage
   ],
   providers: [
     StatusBar,

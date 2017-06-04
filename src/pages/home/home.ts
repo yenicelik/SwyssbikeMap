@@ -1,5 +1,5 @@
-import {Component} from '@angular/core';
-import {NavController} from 'ionic-angular';
+import {Component, ViewChild, ElementRef} from '@angular/core';
+import {NavController, ModalController, AlertController} from 'ionic-angular';
 
 import {Geolocation} from '@ionic-native/geolocation';
 
@@ -17,6 +17,8 @@ declare var google;
 })
 export class HomePage {
 
+  //TODO: if one has a javascript console, it is not safe to just add a CSS of 'keyboardopen' into it, as stopRidingBike could be invoked. Make sure this is conditioned
+  @ViewChild('infoFooter') infoFooter: ElementRef;
   map: any;
   userLocation: any;
   begin: boolean;
@@ -25,7 +27,8 @@ export class HomePage {
 
   constructor(public navCtrl: NavController,
               public geolocation: Geolocation,
-              public bikeDB: BikeDbProvider) {
+              public bikeDB: BikeDbProvider,
+              public modalCtrl: ModalController) {
     console.log("Home page creator loaded");
     this.begin = true;
     this.bikeDB.creationLoad();
@@ -36,6 +39,7 @@ export class HomePage {
 
   ionViewDidLoad() {
     console.log("ngAfterViewInit loaded");
+    this.infoFooter.nativeElement.classList.add('keyboardopen');
 
     let mapEle = document.getElementById('map');
     let mapOpt = {
@@ -93,7 +97,7 @@ export class HomePage {
         this.addCurLocationAsBike();
         this.removeBikeMarkers();
         this.addBikeMarkers();
-      }, 1000 * 3);
+      }, 1000 * 20);
 
     } catch (e) {
       console.log("ERROR WHEN STARTING AND STOPPING BOOKINGBIKE!");
@@ -117,7 +121,7 @@ export class HomePage {
 
       //TODO: somehow, this doesn't work. It doesn't track the users location
       this.userLocation = new google.maps.LatLng(curGeolocation.coords.latitude, curGeolocation.coords.longitude);
-      console.log(this.userLocation);
+      console.log(JSON.stringify(this.userLocation));
 
       if (this.userPositionMarker) { //not necessarily the best option
         this.userPositionMarker.setMap(null);
@@ -155,6 +159,22 @@ export class HomePage {
                 title: "Bike" + String(sglBike['bike_no'])
               });
 
+              bikePositionMarker.addListener('click', () => {
+
+                if (this.userLocation) {
+                  let bikeModal = this.modalCtrl.create(RentBikePage, {}); //At this stage, don't pass anything to the other page
+                  //Action for when modal goes away
+                  bikeModal.onDidDismiss((data) => {
+                    console.log("End of START BOOKING BIKE");
+                    console.log(JSON.stringify(data));
+                    this.infoFooter.nativeElement.classList.remove('keyboardopen');
+                  });
+                  bikeModal.present()
+                }
+              });
+
+
+
               this.allBikeMarkers.push(bikePositionMarker);
             } else {
               console.log("Bike is in use!");
@@ -181,7 +201,6 @@ export class HomePage {
       console.log("Location is not available yet!");
     }
 
-
   }
 
 
@@ -194,6 +213,23 @@ export class HomePage {
       });
       this.allBikeMarkers = [];
     }
+  }
+
+
+  //TODO make sure to move this into the rent-bike.ts somehow!!
+  stopBookingBike() {
+
+    //TODO: make sure that bike was booked before it can be returned
+    var saveData = {
+      bike_no: 1,
+      current_user: "0",
+      positionLat: 47.3546,
+      positionLng: 8.5553
+    };
+
+    this.bikeDB.updateBikeData(saveData);
+    this.infoFooter.nativeElement.classList.add('keyboardopen');
+
   }
 
   /*ngAfterViewInit() {
